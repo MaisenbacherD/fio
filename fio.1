@@ -3350,6 +3350,13 @@ Disable measurements of submission latency numbers. See
 Disable measurements of throughput/bandwidth numbers. See
 \fBdisable_lat\fR.
 .TP
+.BI enable_zbd_lat \fR=\fPbool
+Enable measurements of ZBD latency numbers.
+.TP
+.BI zone_finish_threshold \fR=\fPint
+Specifies how much the zone can be written (in percent) until it gets
+finished. The default values is 100(%).
+.TP
 .BI slat_percentiles \fR=\fPbool
 Report submission latency percentiles. Submission latency is not recorded
 for synchronous ioengines.
@@ -3360,6 +3367,12 @@ Report completion latency percentiles.
 .BI lat_percentiles \fR=\fPbool
 Report total latency percentiles. Total latency is the sum of submission
 latency and completion latency.
+.TP
+.BI zbd_reset_lat_percentiles \fR=\fPbool
+Report ZBD reset latency percentiles.
+.TP
+.BI zbd_finish_lat_percentiles \fR=\fPbool
+Report ZBD finish latency percentiles.
 .TP
 .BI percentile_list \fR=\fPfloat_list
 Overwrite the default list of percentiles for latencies and the

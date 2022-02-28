@@ -1449,6 +1449,9 @@ static int str_gtod_reduce_cb(void *data, int *il)
 		td->o.clat_percentiles = 0;
 		td->o.lat_percentiles = 0;
 		td->o.slat_percentiles = 0;
+		td->o.enable_zbd_lat = 0;
+		td->o.zbd_reset_lat_percentiles = 0;
+		td->o.zbd_finish_lat_percentiles = 0;
 		td->ts_cache_mask = 63;
 	}
 
@@ -4578,6 +4581,26 @@ struct fio_option fio_options[FIO_MAX_OPTS] = {
 		.group	= FIO_OPT_G_INVALID,
 	},
 	{
+		.name	= "zbd_reset_lat_percentiles",
+		.lname	= "Zoned block device reset latency percentiles",
+		.type	= FIO_OPT_BOOL,
+		.off1	= offsetof(struct thread_options, zbd_reset_lat_percentiles),
+		.help	= "Enable the reporting of ZBD reset latency percentiles",
+		.def	= "0",
+		.category = FIO_OPT_C_STAT,
+		.group	= FIO_OPT_G_INVALID,
+	},
+	{
+		.name	= "zbd_finish_lat_percentiles",
+		.lname	= "Zoned block device finish latency percentiles",
+		.type	= FIO_OPT_BOOL,
+		.off1	= offsetof(struct thread_options, zbd_finish_lat_percentiles),
+		.help	= "Enable the reporting of ZBD finish latency percentiles",
+		.def	= "0",
+		.category = FIO_OPT_C_STAT,
+		.group	= FIO_OPT_G_INVALID,
+	},
+	{
 		.name	= "percentile_list",
 		.lname	= "Percentile list",
 		.type	= FIO_OPT_FLOAT_LIST,
@@ -4671,6 +4694,30 @@ struct fio_option fio_options[FIO_MAX_OPTS] = {
 		.def	= "0",
 		.category = FIO_OPT_C_STAT,
 		.group	= FIO_OPT_G_INVALID,
+	},
+	{
+		.name	= "enable_zbd_lat",
+		.lname	= "Enable ZBD latency stats",
+		.type	= FIO_OPT_BOOL,
+		.off1	= offsetof(struct thread_options, enable_zbd_lat),
+		.help	= "Enable latency numbers",
+		.parent	= "gtod_reduce",
+		.hide	= 1,
+		.def	= "0",
+		.category = FIO_OPT_C_STAT,
+		.group	= FIO_OPT_G_INVALID,
+	},
+	{
+		.name	= "zone_finish_threshold",
+		.lname	= "Percentage of zone capacity that can be used before the zone is finished",
+		.type	= FIO_OPT_INT,
+		.off1	= offsetof(struct thread_options, zone_finish_threshold),
+		.help	= "Percentage of zone capacity that can be used before the zone is finished",
+		.parent	= "zonemode",
+		.hide	= 1,
+		.def	= "100",
+		.category = FIO_OPT_C_GENERAL,
+		.group	= FIO_OPT_G_ZONE,
 	},
 	{
 		.name	= "disable_bw_measurement",

@@ -628,6 +628,11 @@ static int fixup_options(struct thread_data *td)
 		ret |= warnings_fatal;
 	}
 
+	if (o->zone_finish_threshold > 100 || o->zone_finish_threshold < 0) {
+		log_err("fio: --zone_finish_threshold must be in the range of [0, 100].\n");
+		ret |= 1;
+
+	}
 	if (o->zone_mode == ZONE_MODE_NONE && o->zone_size) {
 		log_err("fio: --zonemode=none and --zonesize are not compatible.\n");
 		ret |= 1;
@@ -635,6 +640,21 @@ static int fixup_options(struct thread_data *td)
 
 	if (o->zone_mode == ZONE_MODE_ZBD && !o->create_serialize) {
 		log_err("fio: --zonemode=zbd and --create_serialize=0 are not compatible.\n");
+		ret |= 1;
+	}
+
+	if (o->zone_mode != ZONE_MODE_ZBD && o->enable_zbd_lat) {
+		log_err("fio: for --enable_zbd_lat the option --zonemode=zbd must be enabled.\n");
+		ret |= 1;
+	}
+
+	if (!o->enable_zbd_lat && o->zbd_reset_lat_percentiles) {
+		log_err("fio: for --zbd_reset_lat_percentiles the option --enable_zbd_lat must be enabled.\n");
+		ret |= 1;
+	}
+
+	if (!o->enable_zbd_lat && o->zbd_finish_lat_percentiles) {
+		log_err("fio: for --zbd_finish_lat_percentiles the option --enable_zbd_lat must be enabled.\n");
 		ret |= 1;
 	}
 
@@ -949,6 +969,10 @@ static int fixup_options(struct thread_data *td)
 		o->clat_percentiles = 0;
 	if (o->disable_slat)
 		o->slat_percentiles = 0;
+	if (!o->enable_zbd_lat) {
+		o->zbd_reset_lat_percentiles = 0;
+		o->zbd_finish_lat_percentiles = 0;
+	}
 
 	/*
 	 * Fix these up to be nsec internally
@@ -1544,6 +1568,8 @@ static int add_job(struct thread_data *td, const char *jobname, int job_add_num,
 	td->ts.clat_percentiles = o->clat_percentiles;
 	td->ts.lat_percentiles = o->lat_percentiles;
 	td->ts.slat_percentiles = o->slat_percentiles;
+	td->ts.zbd_reset_lat_percentiles = o->zbd_reset_lat_percentiles;
+	td->ts.zbd_finish_lat_percentiles = o->zbd_finish_lat_percentiles;
 	td->ts.percentile_precision = o->percentile_precision;
 	memcpy(td->ts.percentile_list, o->percentile_list, sizeof(o->percentile_list));
 	td->ts.sig_figs = o->sig_figs;
@@ -1557,6 +1583,8 @@ static int add_job(struct thread_data *td, const char *jobname, int job_add_num,
 		td->ts.clat_high_prio_stat[i].min_val = ULONG_MAX;
 		td->ts.clat_low_prio_stat[i].min_val = ULONG_MAX;
 	}
+	td->ts.zbd_reset_lat_stat.min_val = ULONG_MAX;
+	td->ts.zbd_finish_lat_stat.min_val = ULONG_MAX;
 	td->ts.sync_stat.min_val = ULONG_MAX;
 	td->ddir_seq_nr = o->ddir_seq_nr;
 

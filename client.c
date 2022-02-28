@@ -961,6 +961,8 @@ static void convert_ts(struct thread_stat *dst, struct thread_stat *src)
 		convert_io_stat(&dst->bw_stat[i], &src->bw_stat[i]);
 		convert_io_stat(&dst->iops_stat[i], &src->iops_stat[i]);
 	}
+	convert_io_stat(&dst->zbd_reset_lat_stat, &src->zbd_reset_lat_stat);
+	convert_io_stat(&dst->zbd_finish_lat_stat, &src->zbd_finish_lat_stat);
 	convert_io_stat(&dst->sync_stat, &src->sync_stat);
 
 	dst->usr_time		= le64_to_cpu(src->usr_time);
@@ -971,6 +973,8 @@ static void convert_ts(struct thread_stat *dst, struct thread_stat *src)
 	dst->clat_percentiles	= le32_to_cpu(src->clat_percentiles);
 	dst->lat_percentiles	= le32_to_cpu(src->lat_percentiles);
 	dst->slat_percentiles	= le32_to_cpu(src->slat_percentiles);
+	dst->zbd_reset_lat_percentiles	= le32_to_cpu(src->zbd_reset_lat_percentiles);
+	dst->zbd_finish_lat_percentiles	= le32_to_cpu(src->zbd_finish_lat_percentiles);
 	dst->percentile_precision = le64_to_cpu(src->percentile_precision);
 
 	for (i = 0; i < FIO_IO_U_LIST_MAX_LEN; i++) {
@@ -998,8 +1002,11 @@ static void convert_ts(struct thread_stat *dst, struct thread_stat *src)
 			for (k = 0; k < FIO_IO_U_PLAT_NR; k++)
 				dst->io_u_plat[i][j][k] = le64_to_cpu(src->io_u_plat[i][j][k]);
 
-	for (j = 0; j < FIO_IO_U_PLAT_NR; j++)
+	for (j = 0; j < FIO_IO_U_PLAT_NR; j++) {
 		dst->io_u_sync_plat[j] = le64_to_cpu(src->io_u_sync_plat[j]);
+		dst->io_u_zbd_reset_plat[j] = le64_to_cpu(src->io_u_zbd_reset_plat[j]);
+		dst->io_u_zbd_finish_plat[j] = le64_to_cpu(src->io_u_zbd_finish_plat[j]);
+	}
 
 	for (i = 0; i < DDIR_RWDIR_SYNC_CNT; i++)
 		dst->total_io_u[i]	= le64_to_cpu(src->total_io_u[i]);
@@ -1012,6 +1019,8 @@ static void convert_ts(struct thread_stat *dst, struct thread_stat *src)
 	dst->total_submit	= le64_to_cpu(src->total_submit);
 	dst->total_complete	= le64_to_cpu(src->total_complete);
 	dst->nr_zone_resets	= le64_to_cpu(src->nr_zone_resets);
+	dst->enable_zbd_lat	= le32_to_cpu(src->enable_zbd_lat);
+	dst->zone_finish_threshold	= le32_to_cpu(src->zone_finish_threshold);
 
 	for (i = 0; i < DDIR_RWDIR_CNT; i++) {
 		dst->io_bytes[i]	= le64_to_cpu(src->io_bytes[i]);

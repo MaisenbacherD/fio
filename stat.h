@@ -205,6 +205,8 @@ struct thread_stat {
 	uint64_t io_u_lat_m[FIO_IO_U_LAT_M_NR];
 	uint64_t io_u_plat[FIO_LAT_CNT][DDIR_RWDIR_CNT][FIO_IO_U_PLAT_NR];
 	uint64_t io_u_sync_plat[FIO_IO_U_PLAT_NR];
+	uint64_t io_u_zbd_reset_plat[FIO_IO_U_PLAT_NR];
+	uint64_t io_u_zbd_finish_plat[FIO_IO_U_PLAT_NR];
 
 	uint64_t total_io_u[DDIR_RWDIR_SYNC_CNT];
 	uint64_t short_io_u[DDIR_RWDIR_CNT];
@@ -269,6 +271,13 @@ struct thread_stat {
 
 	uint64_t cachehit;
 	uint64_t cachemiss;
+
+	struct io_stat zbd_reset_lat_stat __attribute__((aligned(8)));
+	struct io_stat zbd_finish_lat_stat __attribute__((aligned(8)));
+	uint32_t zbd_reset_lat_percentiles;
+	uint32_t zbd_finish_lat_percentiles;
+	uint32_t enable_zbd_lat;
+	uint32_t zone_finish_threshold;
 } __attribute__((packed));
 
 #define JOBS_ETA {							\
@@ -346,6 +355,9 @@ extern void add_clat_sample(struct thread_data *, enum fio_ddir, unsigned long l
 			    unsigned long long, uint64_t, unsigned int, bool);
 extern void add_slat_sample(struct thread_data *, enum fio_ddir, unsigned long long,
 				unsigned long long, uint64_t, unsigned int);
+extern void add_zbd_reset_lat_sample(struct thread_data *, unsigned long long);
+extern void add_zbd_finish_lat_sample(struct thread_data *, unsigned long long);
+
 extern void add_agg_sample(union io_sample_data, enum fio_ddir, unsigned long long);
 extern void add_iops_sample(struct thread_data *, struct io_u *,
 				unsigned int);

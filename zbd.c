@@ -109,11 +109,23 @@ int zbd_reset_wp(struct thread_data *td, struct fio_file *f,
 		 uint64_t offset, uint64_t length)
 {
 	int ret;
+	struct timespec start, end;
+	uint64_t nsec;
+
+	if (td->o.enable_zbd_lat)
+		fio_gettime(&start, NULL);
 
 	if (td->io_ops && td->io_ops->reset_wp)
 		ret = td->io_ops->reset_wp(td, f, offset, length);
 	else
 		ret = blkzoned_reset_wp(td, f, offset, length);
+
+	if (td->o.enable_zbd_lat) {
+		fio_gettime(&end, NULL);
+		nsec = ntime_since(&start, &end);
+		add_zbd_reset_lat_sample(td, nsec);
+	}
+
 	if (ret < 0) {
 		td_verror(td, errno, "resetting wp failed");
 		log_err("%s: resetting wp for %"PRIu64" sectors at sector %"PRIu64" failed (%d).\n",
@@ -934,10 +946,18 @@ static int zbd_reset_zone(struct thread_data *td, struct fio_file *f,
 }
 
 /* The caller must hold f->zbd_info->mutex */
-static void zbd_close_zone(struct thread_data *td, const struct fio_file *f,
-			   unsigned int zone_idx)
+static void zbd_close_zone(struct thread_data *td, struct fio_file *f,
+			   struct fio_zone_info *z)
 {
+	unsigned int zone_idx = zbd_zone_nr(f, z);
 	uint32_t open_zone_idx = 0;
+	uint64_t offset = z->start;
+	uint64_t length = (z+1)->start - offset;
+	struct timespec start, end;
+	uint64_t nsec;
+	int ret;
+
+	assert(is_valid_offset(f, offset + length - 1));
 
 	for (; open_zone_idx < f->zbd_info->num_open_zones; open_zone_idx++) {
 		if (f->zbd_info->open_zones[open_zone_idx] == zone_idx)
@@ -947,6 +967,21 @@ static void zbd_close_zone(struct thread_data *td, const struct fio_file *f,
 		return;
 
 	dprint(FD_ZBD, "%s: closing zone %d\n", f->file_name, zone_idx);
+
+	if (td->o.enable_zbd_lat) {
+		fio_gettime(&start, NULL);
+		ret = blkzoned_finish_zones(td, f, offset, length);
+		fio_gettime(&end, NULL);
+		if (ret < 0) {
+			td_verror(td, errno, "finishing zones failed");
+			log_err("%s: finishing zones for %"PRIu64" sectors at sector %"PRIu64" failed (%d).\n",
+				f->file_name, length >> 9, offset >> 9, errno);
+		} else {
+			nsec = ntime_since(&start, &end);
+			add_zbd_finish_lat_sample(td, nsec);
+		}
+	}
+
 	memmove(f->zbd_info->open_zones + open_zone_idx,
 		f->zbd_info->open_zones + open_zone_idx + 1,
 		(ZBD_MAX_OPEN_ZONES - (open_zone_idx + 1)) *
@@ -976,13 +1011,12 @@ static int zbd_reset_zones(struct thread_data *td, struct fio_file *f,
 	dprint(FD_ZBD, "%s: examining zones %u .. %u\n", f->file_name,
 		zbd_zone_nr(f, zb), zbd_zone_nr(f, ze));
 	for (z = zb; z < ze; z++) {
-		uint32_t nz = zbd_zone_nr(f, z);
 
 		if (!z->has_wp)
 			continue;
 		zone_lock(td, f, z);
 		pthread_mutex_lock(&f->zbd_info->mutex);
-		zbd_close_zone(td, f, nz);
+		zbd_close_zone(td, f, z);
 		pthread_mutex_unlock(&f->zbd_info->mutex);
 		if (z->wp != z->start) {
 			dprint(FD_ZBD, "%s: resetting zone %u\n",
@@ -1512,12 +1546,16 @@ zbd_find_zone(struct thread_data *td, struct io_u *io_u, uint64_t min_bytes,
 static void zbd_end_zone_io(struct thread_data *td, const struct io_u *io_u,
 			    struct fio_zone_info *z)
 {
-	const struct fio_file *f = io_u->file;
+	struct fio_file *f = io_u->file;
 
+	//TODO: remove the follwing line
+	//printf("zbd_zone_capacity_end: %lu, modified: %f\n", zbd_zone_capacity_end(z), (zbd_zone_capacity_end(z) * ((float)td->o.zone_finish_threshold / 100.0)));
 	if (io_u->ddir == DDIR_WRITE &&
 	    io_u->offset + io_u->buflen >= zbd_zone_capacity_end(z)) {
+		//TODO: for zone_finish_threshold != 100 something is wrong
+		//(zbd_zone_capacity_end(z) * ((float)td->o.zone_finish_threshold / 100.0))) {
 		pthread_mutex_lock(&f->zbd_info->mutex);
-		zbd_close_zone(td, f, zbd_zone_nr(f, z));
+		zbd_close_zone(td, f, z);
 		pthread_mutex_unlock(&f->zbd_info->mutex);
 	}
 }

@@ -1940,6 +1940,18 @@ static struct json_object *show_thread_status_json(struct thread_stat *ts,
 		json_object_add_value_int(root, "latency_window", ts->latency_window);
 	}
 
+	if (ts->enable_zbd_lat) {
+		tmp = add_ddir_lat_json(ts, ts->zbd_reset_lat_percentiles,
+					&ts->zbd_reset_lat_stat,
+					ts->io_u_zbd_reset_plat);
+		json_object_add_value_object(root, "zbd_reset_lat_ns", tmp);
+
+		tmp = add_ddir_lat_json(ts, ts->zbd_finish_lat_percentiles,
+					&ts->zbd_finish_lat_stat,
+					ts->io_u_zbd_finish_plat);
+		json_object_add_value_object(root, "zbd_finish_lat_ns", tmp);
+	}
+
 	/* Additional output if description is set */
 	if (strlen(ts->description))
 		json_object_add_value_string(root, "desc", ts->description);
@@ -2195,6 +2207,8 @@ void sum_thread_stats(struct thread_stat *dst, struct thread_stat *src,
 		}
 	}
 
+	sum_stat(&dst->zbd_reset_lat_stat, &src->zbd_reset_lat_stat, first, false);
+	sum_stat(&dst->zbd_finish_lat_stat, &src->zbd_finish_lat_stat, first, false);
 	sum_stat(&dst->sync_stat, &src->sync_stat, first, false);
 	dst->usr_time += src->usr_time;
 	dst->sys_time += src->sys_time;
@@ -2237,8 +2251,11 @@ void sum_thread_stats(struct thread_stat *dst, struct thread_stat *src,
 				else
 					dst->io_u_plat[k][0][m] += src->io_u_plat[k][l][m];
 
-	for (k = 0; k < FIO_IO_U_PLAT_NR; k++)
+	for (k = 0; k < FIO_IO_U_PLAT_NR; k++) {
 		dst->io_u_sync_plat[k] += src->io_u_sync_plat[k];
+		dst->io_u_zbd_reset_plat[k] += src->io_u_zbd_reset_plat[k];
+		dst->io_u_zbd_finish_plat[k] += src->io_u_zbd_finish_plat[k];
+	}
 
 	for (k = 0; k < DDIR_RWDIR_CNT; k++) {
 		for (m = 0; m < FIO_IO_U_PLAT_NR; m++) {
@@ -2285,6 +2302,8 @@ void init_thread_stat(struct thread_stat *ts)
 		ts->clat_high_prio_stat[j].min_val = -1UL;
 		ts->clat_low_prio_stat[j].min_val = -1UL;
 	}
+	ts->zbd_reset_lat_stat.min_val = -1UL;
+	ts->zbd_finish_lat_stat.min_val = -1UL;
 	ts->sync_stat.min_val = -1UL;
 	ts->groupid = -1;
 }
@@ -2355,6 +2374,10 @@ void __show_run_stats(void)
 		ts->lat_percentiles = td->o.lat_percentiles;
 		ts->slat_percentiles = td->o.slat_percentiles;
 		ts->percentile_precision = td->o.percentile_precision;
+		ts->zbd_reset_lat_percentiles = td->o.zbd_reset_lat_percentiles;
+		ts->zbd_finish_lat_percentiles = td->o.zbd_finish_lat_percentiles;
+		ts->enable_zbd_lat = td->o.enable_zbd_lat;
+		ts->zone_finish_threshold = td->o.zone_finish_threshold;
 		memcpy(ts->percentile_list, td->o.percentile_list, sizeof(td->o.percentile_list));
 		opt_lists[j] = &td->opt_list;
 
@@ -2928,10 +2951,16 @@ void reset_io_stats(struct thread_data *td)
 		for (j = 0; j < FIO_IO_U_PLAT_NR; j++) {
 			ts->io_u_plat_high_prio[i][j] = 0;
 			ts->io_u_plat_low_prio[i][j] = 0;
-			if (!i)
+			if (!i) {
 				ts->io_u_sync_plat[j] = 0;
+				ts->io_u_zbd_reset_plat[j] = 0;
+				ts->io_u_zbd_finish_plat[j] = 0;
+			}
 		}
 	}
+
+	reset_io_stat(&ts->zbd_reset_lat_stat);
+	reset_io_stat(&ts->zbd_finish_lat_stat);
 
 	for (i = 0; i < FIO_LAT_CNT; i++)
 		for (j = 0; j < DDIR_RWDIR_CNT; j++)
@@ -3228,6 +3257,49 @@ void add_lat_sample(struct thread_data *td, enum fio_ddir ddir,
 			add_stat_sample(&ts->clat_low_prio_stat[ddir], nsec);
 
 	}
+	if (needs_lock)
+		__td_io_u_unlock(td);
+}
+
+
+void add_zbd_reset_lat_sample(struct thread_data *td, unsigned long long nsec)
+{
+	const bool needs_lock = td_async_processing(td);
+	struct thread_stat *ts = &td->ts;
+	unsigned int idx = 0;
+
+	if (needs_lock)
+		__td_io_u_lock(td);
+
+	if (ts->zbd_reset_lat_percentiles) {
+		idx = plat_val_to_idx(nsec);
+		assert(idx < FIO_IO_U_PLAT_NR);
+		ts->io_u_zbd_reset_plat[idx]++;
+	}
+
+	add_stat_sample(&ts->zbd_reset_lat_stat, nsec);
+
+	if (needs_lock)
+		__td_io_u_unlock(td);
+}
+
+void add_zbd_finish_lat_sample(struct thread_data *td, unsigned long long nsec)
+{
+	const bool needs_lock = td_async_processing(td);
+	struct thread_stat *ts = &td->ts;
+	unsigned int idx = 0;
+
+	if (needs_lock)
+		__td_io_u_lock(td);
+
+	if (ts->zbd_finish_lat_percentiles) {
+		idx = plat_val_to_idx(nsec);
+		assert(idx < FIO_IO_U_PLAT_NR);
+		ts->io_u_zbd_finish_plat[idx]++;
+	}
+
+	add_stat_sample(&ts->zbd_finish_lat_stat, nsec);
+
 	if (needs_lock)
 		__td_io_u_unlock(td);
 }

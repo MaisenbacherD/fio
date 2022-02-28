@@ -735,7 +735,7 @@ Time related parameters
 .. option:: gtod_reduce=bool
 
 	Enable all of the :manpage:`gettimeofday(2)` reducing options
-	(:option:`disable_clat`, :option:`disable_slat`, :option:`disable_bw_measurement`) plus
+	(:option:`disable_clat`, :option:`disable_slat`, :option:`disable_bw_measurement`, :option:`enable_zbd_lat`) plus
 	reduce precision of the timeout somewhat to really shrink the
 	:manpage:`gettimeofday(2)` call count. With this option enabled, we only do
 	about 0.4% of the :manpage:`gettimeofday(2)` calls we would have done if all
@@ -3652,6 +3652,15 @@ Measurements and reporting
 	Disable measurements of submission latency numbers. See
 	:option:`disable_lat`.
 
+.. option:: enable_zbd_lat=bool
+
+	Enable measurements of ZBD latency numbers.
+
+.. option:: zone_finish_threshold=int
+
+	Specifies how much the zone can be written (in percent) until it gets
+	finished. The default values is 100(%).
+
 .. option:: disable_bw_measurement=bool, disable_bw=bool
 
 	Disable measurements of throughput/bandwidth numbers. See
@@ -3670,6 +3679,14 @@ Measurements and reporting
 
 	Report total latency percentiles. Total latency is the sum of submission
 	latency and completion latency.
+
+.. option:: zbd_reset_lat_percentiles=bool
+
+	Report ZBD reset latency percentiles.
+
+.. option:: zbd_finish_lat_percentiles=bool
+
+	Report ZBD finish latency percentiles.
 
 .. option:: percentile_list=float_list
 

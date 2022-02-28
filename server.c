@@ -1491,6 +1491,8 @@ void fio_server_send_ts(struct thread_stat *ts, struct group_run_stats *rs)
 		convert_io_stat(&p.ts.bw_stat[i], &ts->bw_stat[i]);
 		convert_io_stat(&p.ts.iops_stat[i], &ts->iops_stat[i]);
 	}
+	convert_io_stat(&p.ts.zbd_reset_lat_stat, &ts->zbd_reset_lat_stat);
+	convert_io_stat(&p.ts.zbd_finish_lat_stat, &ts->zbd_finish_lat_stat);
 	convert_io_stat(&p.ts.sync_stat, &ts->sync_stat);
 
 	p.ts.usr_time		= cpu_to_le64(ts->usr_time);
@@ -1501,6 +1503,8 @@ void fio_server_send_ts(struct thread_stat *ts, struct group_run_stats *rs)
 	p.ts.clat_percentiles	= cpu_to_le32(ts->clat_percentiles);
 	p.ts.lat_percentiles	= cpu_to_le32(ts->lat_percentiles);
 	p.ts.slat_percentiles	= cpu_to_le32(ts->slat_percentiles);
+	p.ts.zbd_reset_lat_percentiles = cpu_to_le32(ts->zbd_reset_lat_percentiles);
+	p.ts.zbd_finish_lat_percentiles = cpu_to_le32(ts->zbd_finish_lat_percentiles);
 	p.ts.percentile_precision = cpu_to_le64(ts->percentile_precision);
 
 	for (i = 0; i < FIO_IO_U_LIST_MAX_LEN; i++) {
@@ -1528,8 +1532,11 @@ void fio_server_send_ts(struct thread_stat *ts, struct group_run_stats *rs)
 			for (k = 0; k < FIO_IO_U_PLAT_NR; k++)
 				p.ts.io_u_plat[i][j][k] = cpu_to_le64(ts->io_u_plat[i][j][k]);
 
-	for (j = 0; j < FIO_IO_U_PLAT_NR; j++)
+	for (j = 0; j < FIO_IO_U_PLAT_NR; j++) {
 		p.ts.io_u_sync_plat[j] = cpu_to_le64(ts->io_u_sync_plat[j]);
+		p.ts.io_u_zbd_reset_plat[j] = cpu_to_le64(ts->io_u_zbd_reset_plat[j]);
+		p.ts.io_u_zbd_finish_plat[j] = cpu_to_le64(ts->io_u_zbd_finish_plat[j]);
+	}
 
 	for (i = 0; i < DDIR_RWDIR_SYNC_CNT; i++)
 		p.ts.total_io_u[i]	= cpu_to_le64(ts->total_io_u[i]);
@@ -1542,6 +1549,8 @@ void fio_server_send_ts(struct thread_stat *ts, struct group_run_stats *rs)
 	p.ts.total_submit	= cpu_to_le64(ts->total_submit);
 	p.ts.total_complete	= cpu_to_le64(ts->total_complete);
 	p.ts.nr_zone_resets	= cpu_to_le64(ts->nr_zone_resets);
+	p.ts.enable_zbd_lat	= cpu_to_le32(ts->enable_zbd_lat);
+	p.ts.zone_finish_threshold	= cpu_to_le32(ts->zone_finish_threshold);
 
 	for (i = 0; i < DDIR_RWDIR_CNT; i++) {
 		p.ts.io_bytes[i]	= cpu_to_le64(ts->io_bytes[i]);

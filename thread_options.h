@@ -376,6 +376,10 @@ struct thread_options {
 	unsigned int ignore_zone_limits;
 	fio_fp64_t zrt;
 	fio_fp64_t zrf;
+	unsigned int enable_zbd_lat;
+	unsigned int zone_finish_threshold;
+	unsigned int zbd_reset_lat_percentiles;
+	unsigned int zbd_finish_lat_percentiles;
 
 	unsigned int log_prio;
 };
@@ -683,7 +687,13 @@ struct thread_options_pack {
 	int32_t max_open_zones;
 	uint32_t ignore_zone_limits;
 
+	uint32_t enable_zbd_lat;
+	uint32_t zone_finish_threshold;
+	uint32_t zbd_reset_lat_percentiles;
+	uint32_t zbd_finish_lat_percentiles;
+
 	uint32_t log_prio;
+
 } __attribute__((packed));
 
 extern void convert_thread_options_to_cpu(struct thread_options *o, struct thread_options_pack *top);
